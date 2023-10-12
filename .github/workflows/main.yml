@@ -31,3 +31,7 @@ jobs:
       - name: Sts GetCallerIdentity
         run: |
           aws sts get-caller-identity
+      # Hello from AWS: WhoAmI
+      - name: Show all buckets
+        run: |
+          aws s3 ls
