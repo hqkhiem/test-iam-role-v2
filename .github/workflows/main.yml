@@ -47,6 +47,7 @@ jobs:
       #     fi
       - name: Start Flink application
         run: |
+          APP_STATE=""
           APP_STATE=$(aws kinesisanalyticsv2 describe-application --application-name MyApplication2 --region us-east-1 --query 'ApplicationDetail.ApplicationStatus' --output text 2>/dev/null)
           if [[ "$APP_STATE" == "READY" ]]; then
             echo "Current state: $APP_STATE .Application is ready. Starting the application..."
