@@ -4,17 +4,17 @@ name: Connect to an AWS role from a GitHub repository
 # Controls when the action will run. Invokes the workflow on push events but only for the main branch
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 env:
-  AWS_REGION : us-east-1 #Change to reflect your Region
+  AWS_REGION: us-east-1 #Change to reflect your Region
 
-# Permission can be added at job level or workflow level    
+# Permission can be added at job level or workflow level
 permissions:
-  id-token: write   # This is required for requesting the JWT
-  contents: read    # This is required for actions/checkout
+  id-token: write # This is required for requesting the JWT
+  contents: read # This is required for actions/checkout
 jobs:
   AssumeRoleAndCallIdentity:
     runs-on: ubuntu-latest
@@ -35,3 +35,7 @@ jobs:
       - name: Show all buckets
         run: |
           aws s3 ls
+
+      - name: Start Flink application
+        run: |
+          aws kinesisanalyticsv2 start-application --application-name MyApplication --region us-east-1
