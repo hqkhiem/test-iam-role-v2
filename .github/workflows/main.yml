@@ -65,7 +65,7 @@ jobs:
       - name: Use Version ID
         run: |
           echo "Version ID: ${{ env.OBJECT_VERSION }}"
-          bucket_arn=$(aws s3api get-bucket-location --bucket <bucket-name> --query 'LocationConstraint' --output text)
+          bucket_arn=$(aws s3api get-bucket-location --bucket dhp-data-platform-test --query 'LocationConstraint' --output text)
           echo '[
             {
               "ParameterKey": "CodeContentBucketArn",
