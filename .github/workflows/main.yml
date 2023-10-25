@@ -65,3 +65,27 @@ jobs:
       - name: Use Version ID
         run: |
           echo "Version ID: ${{ env.OBJECT_VERSION }}"
+          bucket_arn=$(aws s3api get-bucket-location --bucket <bucket-name> --query 'LocationConstraint' --output text)
+          echo '[
+            {
+              "ParameterKey": "CodeContentBucketArn",
+              "ParameterValue": "${bucket_arn}"
+            },
+            {
+              "ParameterKey": "CodeContentFileKey",
+              "ParameterValue": "flink-job/aws-kinesis-analytics-java-apps-1.0.jar"
+            },,
+            {
+              "ParameterKey": "CodeContentFileVersion",
+              "ParameterValue": "${{ env.OBJECT_VERSION }}"
+            },
+            {
+              "ParameterKey": "ApplicationRestoreType",
+              "ParameterValue": "SKIP_RESTORE_FROM_SNAPSHOT"
+            },
+            {
+              "ParameterKey": "AllowNonRestoredState",
+              "ParameterValue": "true"
+            }
+          ]' > parameters.json
+          cat parameters.json

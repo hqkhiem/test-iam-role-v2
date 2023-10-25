@@ -1,0 +1,180 @@
+Description: 'kinesisanalyticsv2 CloudFormation Test Application'
+Parameters:
+  ApplicationRestoreType:
+    Description: ApplicationRestoreConfiguration option, can be SKIP_RESTORE_FROM_SNAPSHOT, RESTORE_FROM_LATEST_SNAPSHOT or RESTORE_FROM_CUSTOM_SNAPSHOT.
+    Type: String
+    Default: SKIP_RESTORE_FROM_SNAPSHOT
+    AllowedValues: [ SKIP_RESTORE_FROM_SNAPSHOT, RESTORE_FROM_LATEST_SNAPSHOT, RESTORE_FROM_CUSTOM_SNAPSHOT ]
+  SnapshotName:
+    Description: ApplicationRestoreConfiguration option, name of a snapshot to restore to, used with RESTORE_FROM_CUSTOM_SNAPSHOT ApplicationRestoreType.
+    Type: String
+    Default: ''
+  AllowNonRestoredState:
+    Description: FlinkRunConfiguration option, can be true or false.
+    Default: true
+    Type: String
+    AllowedValues: [ true, false ]
+  CodeContentBucketArn:
+    Description: ARN of a bucket with application code.
+    Type: String
+  CodeContentFileKey:
+    Description: A jar filename with an application code inside a bucket.
+    Type: String
+  CodeContentFileVersion:
+    Description: A version of the jar filename with an application code inside a bucket.
+    Type: String
+Conditions:
+  IsSnapshotNameEmpty: !Equals [ !Ref SnapshotName, '' ]
+Resources:
+  TestServiceExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 
+                - kinesisanalytics.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonKinesisFullAccess
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+      Path: /
+  TestFlinkApplication:
+    Type: 'AWS::KinesisAnalyticsV2::Application'
+    Properties:
+      ApplicationName: 'CFNTestFlinkApplication'
+      ApplicationDescription: 'Test Flink Application'
+      RuntimeEnvironment: 'FLINK-1_15'
+      ServiceExecutionRole: !GetAtt TestServiceExecutionRole.Arn
+      ApplicationConfiguration:
+        EnvironmentProperties:
+          PropertyGroups:
+            - PropertyGroupId: 'KinesisStreams'
+              PropertyMap:
+                AWS_REGION: !Ref AWS::Region
+        FlinkApplicationConfiguration:
+          CheckpointConfiguration:
+            ConfigurationType: 'CUSTOM'
+            CheckpointingEnabled: True
+            CheckpointInterval: 1500
+            MinPauseBetweenCheckpoints: 500
+          MonitoringConfiguration:
+            ConfigurationType: 'CUSTOM'
+            MetricsLevel: 'APPLICATION'
+            LogLevel: 'INFO'
+          ParallelismConfiguration:
+            ConfigurationType: 'CUSTOM'
+            Parallelism: 1
+            ParallelismPerKPU: 1
+            AutoScalingEnabled: True
+        ApplicationSnapshotConfiguration:
+          SnapshotsEnabled: false
+        ApplicationCodeConfiguration:
+          CodeContent:
+            S3ContentLocation:
+              BucketARN: !Ref CodeContentBucketArn
+              FileKey: !Ref CodeContentFileKey
+              ObjectVersion: !Ref CodeContentFileVersion
+          CodeContentType: 'ZIPFILE'
+  StartApplicationLambdaRole:
+    Type: AWS::IAM::Role
+    DependsOn: TestFlinkApplication
+    Properties:
+      Description: A role for lambda to use while interacting with an application.
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonKinesisAnalyticsFullAccess
+        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+      Path: /
+  StartApplicationLambda:
+    Type: AWS::Lambda::Function
+    DependsOn: StartApplicationLambdaRole
+    Properties:
+      Description: Starts an application when invoked.
+      Runtime: python3.8
+      Role: !GetAtt StartApplicationLambdaRole.Arn
+      Handler: index.lambda_handler
+      Timeout: 30
+      Code:
+        ZipFile: |
+          import logging
+          import cfnresponse
+          import boto3
+          
+          logger = logging.getLogger()
+          logger.setLevel(logging.INFO)
+          
+          def lambda_handler(event, context):
+            logger.info('Incoming CFN event {}'.format(event))
+            
+            try:
+              application_name = event['ResourceProperties']['ApplicationName']
+              
+              # filter out events other than Create or Update,
+              # you can also omit Update in order to start an application on Create only.
+              if event['RequestType'] not in ["Create", "Update"]:
+                logger.info('No-op for Application {} because CFN RequestType {} is filtered'.format(application_name, event['RequestType'])) 
+                cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                
+                return
+              
+              # use kinesisanalyticsv2 API to start an application.
+              client_kda = boto3.client('kinesisanalyticsv2', region_name=event['ResourceProperties']['Region'])
+              
+              # get application status.
+              describe_response = client_kda.describe_application(ApplicationName=application_name)
+              application_status = describe_response['ApplicationDetail']['ApplicationStatus']
+              
+              # an application can be started from 'READY' status only.
+              if application_status != 'READY':
+                logger.info('No-op for Application {} because ApplicationStatus {} is filtered'.format(application_name, application_status)) 
+                cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+                
+                return
+              
+              # create RunConfiguration from passed parameters. 
+              run_configuration = { 
+                'FlinkRunConfiguration': {
+                  'AllowNonRestoredState': event['ResourceProperties']['AllowNonRestoredState'] == 'true'
+                },
+                'ApplicationRestoreConfiguration': {
+                  'ApplicationRestoreType': event['ResourceProperties']['ApplicationRestoreType'],
+                }
+              }
+              
+              # add SnapshotName to RunConfiguration if specified.
+              if event['ResourceProperties']['SnapshotName'] != '':
+                run_configuration['ApplicationRestoreConfiguration']['SnapshotName'] = event['ResourceProperties']['SnapshotName']
+              
+              logger.info('RunConfiguration for Application {}: {}'.format(application_name, run_configuration)) 
+              
+              # this call doesn't wait for an application to transfer to 'RUNNING' state.
+              client_kda.start_application(ApplicationName=application_name, RunConfiguration=run_configuration)
+              
+              logger.info('Started Application: {}'.format(application_name)) 
+              cfnresponse.send(event, context, cfnresponse.SUCCESS, {})
+            except Exception as err:
+              logger.error(err)
+              cfnresponse.send(event,context, cfnresponse.FAILED, {"Data": str(err)})
+  StartApplicationLambdaInvoke:
+    Description: Invokes StartApplicationLambda to start an application.
+    Type: AWS::CloudFormation::CustomResource
+    DependsOn: StartApplicationLambda
+    Version: "1.0"
+    Properties:
+      ServiceToken: !GetAtt StartApplicationLambda.Arn
+      Region: !Ref AWS::Region
+      ApplicationName: !Ref TestFlinkApplication
+      ApplicationRestoreType: !Ref ApplicationRestoreType
+      SnapshotName: !Ref SnapshotName
+      AllowNonRestoredState: !Ref AllowNonRestoredState
