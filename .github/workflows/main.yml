@@ -57,4 +57,4 @@ jobs:
       - name: Upload artifact to S3
         run: |
           ls '${{ github.workspace }}/${{ env.APP_NAME }}/target'
-          aws s3 cp '${{ github.workspace }}/${{ env.APP_NAME }}/target/aws-kinesis-analytics-java-apps.jar' s3://dhp-data-platform-test/flink-job/${{ env.JAR_NAME }}.jar
+          aws s3 cp '${{ github.workspace }}/${{ env.APP_NAME }}/target/aws-kinesis-analytics-java-apps-1.0.jar' s3://dhp-data-platform-test/flink-job/aws-kinesis-analytics-java-apps-1.0.jar
