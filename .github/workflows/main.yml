@@ -45,13 +45,16 @@ jobs:
       #     else
       #       echo "Application is not ready yet. Current state: $APP_STATE"
       #     fi
-      - name: Start Flink application
-        run: |
-          APP_STATE=$(aws kinesisanalyticsv2 describe-application --application-name MyApplication2 --region us-east-1 --query 'ApplicationDetail.ApplicationStatus' --output json | jq -r '. // empty')
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: 11
+          distribution: 'adopt'
+          cache: maven
+      - name: Build and test project with Maven
+        run: mvn package -Dflink.version=1.15.3 -Dskiptests
 
-          if [[ -z "$APP_STATE" ]]; then
-            echo "Application2 is not existing yet. Current state: $APP_STATE"
-          else
-            echo "Current state: $APP_STATE. Application is ready. Starting the application..."
-            aws kinesisanalyticsv2 start-application --application-name MyApplication2 --region us-east-1
-          fi
+      - name: Upload artifact to S3
+        run: |
+          ls '${{ github.workspace }}/${{ env.APP_NAME }}/target'
+          aws s3 cp '${{ github.workspace }}/${{ env.APP_NAME }}/target/aws-kinesis-analytics-java-apps.jar' s3://dhp-data-platform-test/flink-job/${{ env.JAR_NAME }}.jar
