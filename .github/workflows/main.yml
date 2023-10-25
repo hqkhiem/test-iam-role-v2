@@ -58,3 +58,10 @@ jobs:
         run: |
           ls '${{ github.workspace }}/${{ env.APP_NAME }}/target'
           aws s3 cp '${{ github.workspace }}/${{ env.APP_NAME }}/target/aws-kinesis-analytics-java-apps-1.0.jar' s3://dhp-data-platform-test/flink-job/aws-kinesis-analytics-java-apps-1.0.jar
+          object_version=$(aws s3api list-object-versions --bucket dhp-data-platform-test --prefix flink-job/aws-kinesis-analytics-java-apps-1.0.jar --query 'Versions[0].VersionId' --output text)
+          echo "Current version: $object_version"
+          echo "OBJECT_VERSION=${object_version}" >> $GITHUB_ENV
+
+      - name: Use Version ID
+        run: |
+          echo "Version ID: ${{ env.OBJECT_VERSION }}"
