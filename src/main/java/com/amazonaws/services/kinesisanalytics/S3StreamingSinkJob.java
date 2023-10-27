@@ -6,6 +6,7 @@ import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectNode;
 import org.apache.flink.shaded.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -49,8 +50,11 @@ public class S3StreamingSinkJob {
 
         input.map(value -> { // Parse the JSON
                     JsonNode jsonNode = jsonParser.readValue(value, JsonNode.class);
-                    return new Tuple2<>(jsonNode.get("event_time").toString(), 1);
-                }).returns(Types.TUPLE(Types.STRING, Types.INT))
+                    ObjectNode event = (ObjectNode) jsonNode;
+                    event.put("author", "hqkhiem-flink");
+                    return event.toString();
+                })
+                .returns(String.class)
                 .addSink(createS3SinkFromStaticConfig());
 
         env.execute("Flink S3 Streaming Sink Job");
