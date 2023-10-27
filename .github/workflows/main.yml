@@ -54,41 +54,15 @@ jobs:
       - name: Build and test project with Maven
         run: mvn package -Dflink.version=1.15.3 -Dskiptests
 
+      - name: Generate version
+        run: echo "JOB_VERSION=$(date +%s)" >> $GITHUB_ENV
+
       - name: Upload artifact to S3
         run: |
           ls '${{ github.workspace }}/${{ env.APP_NAME }}/target'
-          aws s3 cp '${{ github.workspace }}/${{ env.APP_NAME }}/target/aws-kinesis-analytics-java-apps-1.0.jar' s3://dhp-data-platform-test/flink-job/aws-kinesis-analytics-java-apps-1.0.jar
+          aws s3 cp '${{ github.workspace }}/${{ env.APP_NAME }}/target/aws-kinesis-analytics-java-apps-1.0.jar' s3://ka-app-code-hqkhiem/code/aws-kinesis-analytics-java-apps-1.${{ env.JOB_VERSION }}.jar
           object_version=$(aws s3api list-object-versions --bucket dhp-data-platform-test --prefix flink-job/aws-kinesis-analytics-java-apps-1.0.jar --query 'Versions[0].VersionId' --output text)
           echo "Current version: $object_version"
           echo "OBJECT_VERSION=${object_version}" >> $GITHUB_ENV
 
-      - name: Apply Cloudformation
-        run: |
-          echo "Version ID: ${{ env.OBJECT_VERSION }}"
-          bucket_arn=$(aws s3api get-bucket-location --bucket dhp-data-platform-test --query 'LocationConstraint' --output text)
-          echo "BUCKET_ARN=${bucket_arn}" >> $GITHUB_ENV
-          echo '[
-            {
-              "ParameterKey": "CodeContentBucketArn",
-              "ParameterValue": "${{ env.BUCKET_ARN }}"
-            },
-            {
-              "ParameterKey": "CodeContentFileKey",
-              "ParameterValue": "flink-job/aws-kinesis-analytics-java-apps-1.0.jar"
-            },,
-            {
-              "ParameterKey": "CodeContentFileVersion",
-              "ParameterValue": "${{ env.OBJECT_VERSION }}"
-            },
-            {
-              "ParameterKey": "ApplicationRestoreType",
-              "ParameterValue": "SKIP_RESTORE_FROM_SNAPSHOT"
-            },
-            {
-              "ParameterKey": "AllowNonRestoredState",
-              "ParameterValue": "true"
-            }
-          ]' > parameters.json
-          cat parameters.json
-          aws cloudformation create-stack --region us-east-1 --template-body /cloudformation/AWSFlinkApplication.yml --parameters parameters.json --stack-name "TestManaged Service for Apache FlinkStack via GHA" --capabilities CAPABILITY_NAMED_IAM
 
