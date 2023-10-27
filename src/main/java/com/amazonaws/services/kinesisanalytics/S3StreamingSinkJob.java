@@ -47,7 +47,11 @@ public class S3StreamingSinkJob {
 
         ObjectMapper jsonParser = new ObjectMapper();
 
-        input.addSink(createS3SinkFromStaticConfig());
+        input.map(value -> { // Parse the JSON
+                    JsonNode jsonNode = jsonParser.readValue(value, JsonNode.class);
+                    return new Tuple2<>(jsonNode.get("event_time").toString(), 1);
+                }).returns(Types.TUPLE(Types.STRING, Types.INT))
+                .addSink(createS3SinkFromStaticConfig());
 
         env.execute("Flink S3 Streaming Sink Job");
     }
