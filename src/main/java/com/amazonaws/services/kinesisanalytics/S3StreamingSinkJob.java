@@ -51,7 +51,7 @@ public class S3StreamingSinkJob {
         input.map(value -> { // Parse the JSON
                     JsonNode jsonNode = jsonParser.readValue(value, JsonNode.class);
                     ObjectNode event = (ObjectNode) jsonNode;
-                    event.put("author", "hqkhiem-flink");
+                    event.put("author", "hqkhiem-flink2");
                     return event.toString();
                 })
                 .returns(String.class)
