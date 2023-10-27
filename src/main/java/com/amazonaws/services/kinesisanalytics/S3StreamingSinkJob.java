@@ -47,15 +47,7 @@ public class S3StreamingSinkJob {
 
         ObjectMapper jsonParser = new ObjectMapper();
 
-        input.map(value -> { // Parse the JSON
-                    JsonNode jsonNode = jsonParser.readValue(value, JsonNode.class);
-                    return new Tuple2<>(jsonNode.get("ticker").toString(), 1);
-                }).returns(Types.TUPLE(Types.STRING, Types.INT))
-                .keyBy(v -> v.f0) // Logically partition the stream for each word
-                .window(TumblingProcessingTimeWindows.of(Time.minutes(1)))
-                .sum(1) // Count the appearances by ticker per partition
-                .map(value -> value.f0 + " count: " + value.f1.toString() + "\n")
-                .addSink(createS3SinkFromStaticConfig());
+        input.addSink(createS3SinkFromStaticConfig());
 
         env.execute("Flink S3 Streaming Sink Job");
     }
