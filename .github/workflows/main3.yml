@@ -44,10 +44,10 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: my-artifact-file-01
-      - shell: bash ls current folder
+      - name: bash ls current folder
         run: ls -l
-      - shell: bash ls github workspace folder
+      - name: bash ls github workspace folder
         run: ls -l ${{ github.workspace }}
-      - shell: bash ls github workspace target folder
+      - name: bash ls github workspace target folder
         run: ls -l ${{ github.workspace }}/target
 
