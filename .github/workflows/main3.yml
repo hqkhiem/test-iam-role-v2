@@ -16,7 +16,7 @@ permissions:
   id-token: write # This is required for requesting the JWT
   contents: read # This is required for actions/checkout
 jobs:
-  AssumeRoleAndCallIdentity:
+  job_1:
     runs-on: ubuntu-latest
     steps:
       - name: Git clone the repository
@@ -29,8 +29,25 @@ jobs:
           cache: maven
       - name: Build and test project with Maven
         run: mvn package -Dflink.version=1.15.3 -Dskiptests
-
-      - name: Upload math result for job 1
-        run: |
-          ls '${{ github.workspace }}
+      
+      - name: Upload jar file
+        uses: actions/upload-artifact@v3
+        with:
+          name: my-artifact-file-01
+          path: ${{ github.workspace }}/target/aws-kinesis-analytics-java-apps-1.0.jar 
+  job_2:
+    name: download jar file to upload s3
+    needs: job_1
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download jar file
+        uses: actions/download-artifact@v3
+        with:
+          name: my-artifact-file-01
+      - shell: bash ls current folder
+        run: ls -l
+      - shell: bash ls github workspace folder
+        run: ls -l ${{ github.workspace }}
+      - shell: bash ls github workspace target folder
+        run: ls -l ${{ github.workspace }}/target
 
