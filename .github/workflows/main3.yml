@@ -46,6 +46,14 @@ jobs:
           name: my-artifact-file-01
       - name: bash ls github workspace folder
         run: ls -l ${{ github.workspace }}
+      
+      - name: configure aws credentials
+        uses: aws-actions/configure-aws-credentials@v1.7.0
+        with:
+          role-to-assume: arn:aws:iam::828534629849:role/GitHubAction-AssumeRoleWithAction
+          role-session-name: GitHub_to_AWS_via_FederatedOIDC
+          aws-region: ${{ env.AWS_REGION }}
+
       - name: Upload artifact to S3
         run: |
           aws s3 cp '${{ github.workspace }}/aws-kinesis-analytics-java-apps-1.0.jar' s3://ka-app-code-hqkhiem/code2/aws-kinesis-analytics-java-apps-1.jar
