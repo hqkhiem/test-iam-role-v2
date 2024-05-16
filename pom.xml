@@ -8,7 +8,6 @@
     <artifactId>aws-kinesis-analytics-java-apps</artifactId>
     <version>1.0</version>
     <packaging>jar</packaging>
-
     <properties>
         <java.version>1.11</java.version>
         <flink.version>1.15.2</flink.version>
